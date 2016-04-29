@@ -1,106 +1,151 @@
 /* jshint node: true */
-
-// To create fast production builds (without ES3 support, minification, derequire, or JSHint)
-// run the following:
-//
-// DISABLE_ES3=true DISABLE_JSCS=true DISABLE_JSHINT=true DISABLE_MIN=true DISABLE_DEREQUIRE=true ember serve --environment=production
-
+var Funnel     = require('broccoli-funnel');
+var Concat     = require('broccoli-concat');
+var Transpiler = require('broccoli-babel-transpiler');
+var Creator    = require('broccoli-file-creator');
+var MergeTrees = require('broccoli-merge-trees');
+var babel      = require('babel-core');
+var resolveModules = require('amd-name-resolver').resolveModules;
+var moduleResolver = resolveModules({ throwOnRootAccess: false });
 var fs = require('fs');
 
-var EmberBuild = require('emberjs-build');
-var packages   = require('./lib/packages');
-
-var applyFeatureFlags = require('babel-plugin-feature-flags');
-var filterImports = require('babel-plugin-filter-imports');
-
-var vendoredPackage    = require('emberjs-build/lib/vendored-package');
-var htmlbarsPackage    = require('emberjs-build/lib/htmlbars-package');
-var vendoredES6Package = require('emberjs-build/lib/es6-vendored-package');
-
-var featuresJson = fs.readFileSync('./features.json', { encoding: 'utf8' });
-
-function babelConfigFor(environment) {
-  var isDevelopment = (environment === 'development');
-  var isProduction = (environment === 'production');
-
-  var features = JSON.parse(featuresJson).features;
-  features['mandatory-setter'] = isDevelopment;
-
-  var plugins = [];
-
-  plugins.push(applyFeatureFlags({
-    import: { module: 'ember-metal/features' },
-    features: features
-  }));
-
-  if (isProduction) {
-    plugins.push(filterImports({
-      'ember-metal/debug': ['assert', 'debug', 'deprecate', 'info', 'runInDebug', 'warn', 'debugSeal']
-    }));
-  }
-
-  return { plugins: plugins };
+function transpile(input, annotation) {
+  plugin = new Transpiler(input, {
+    loose: true,
+    moduleId: true,
+ //externalHelpers: true,
+    modules: 'amdStrict',
+    sourceMaps: 'inline',
+    nonStandard: false,
+    resolveModuleSource: moduleResolver,
+    plugins: [{
+      transformer: enifedFormatter,
+      position: 'after'
+    }, {
+      transformer: replaceDefaultFeatures,
+      position: 'after'
+    }],
+    whitelist: [
+      'es6.templateLiterals',
+      'es6.arrowFunctions',
+      'es6.destructuring',
+      'es6.spread',
+      'es6.parameters',
+      'es6.properties.computed',
+      'es6.properties.shorthand',
+      'es6.blockScoping',
+      'es6.constants',
+      'es6.modules',
+      'es6.classes',
+      'spec.protoToAssign'
+    ]
+  });
+  // can't seem to annotate transpiler
+  // plugin.annotation = annotation;
+  return plugin;
 }
 
-var glimmerEngine = require('glimmer-engine/ember-cli-build')();
-var find = require('broccoli-stew').find;
-
-function addGlimmerPackage(vendoredPackages, name) {
-  vendoredPackages[name] = find(glimmerEngine, 'named-amd/' + name + '/**/*.js');
+function es6PackageLib(name) {
+  return new Funnel('packages/'+name+'/lib', {
+    annotation: name,
+    include: ['**/*.js'],
+    destDir: name
+  });
 }
 
-module.exports = function() {
-  var features = JSON.parse(featuresJson).features;
+function loader() {
+  return new Funnel('packages/loader/lib', {
+    annotation: 'loader',
+    include: ['index.js'],
+    destDir: 'loader'
+  });
+}
 
-  var vendorPackages = {
-    'loader':                vendoredPackage('loader'),
-    'rsvp':                  vendoredES6Package('rsvp'),
-    'backburner':            vendoredES6Package('backburner'),
-    'router':                vendoredES6Package('router.js'),
-    'dag-map':               vendoredES6Package('dag-map'),
-    'route-recognizer':      htmlbarsPackage('route-recognizer', { libPath: 'node_modules/route-recognizer/dist/es6/' }),
-    'dom-helper':            htmlbarsPackage('dom-helper'),
-    'morph-range':           htmlbarsPackage('morph-range'),
-    'morph-attr':            htmlbarsPackage('morph-attr'),
-    'htmlbars-runtime':      htmlbarsPackage('htmlbars-runtime'),
-    'htmlbars-compiler':     htmlbarsPackage('htmlbars-compiler'),
-    'htmlbars-syntax':       htmlbarsPackage('htmlbars-syntax'),
-    'simple-html-tokenizer': htmlbarsPackage('simple-html-tokenizer'),
-    'htmlbars-test-helpers': htmlbarsPackage('htmlbars-test-helpers', { singleFile: true }),
-    'htmlbars-util':         htmlbarsPackage('htmlbars-util')
-  };
+module.exports = function () {
+  var backburnerModules         = transpile(
+    new Funnel('bower_components/backburner/lib', {
+      include: ['backburner.js', 'backburner/**/*.js'],
+      destDir: '/',
+      annotation: 'backburner'
+    }), 'backburner'
+  );
+  var rsvpModules         = transpile(
+    new Funnel('bower_components/rsvp/lib', {
+      include: ['rsvp.js', 'rsvp/**/*.js'],
+      destDir: '/',
+      annotation: 'rsvp'
+    }), 'rsvp'
+  );
+  var containerModules     = transpile(es6PackageLib('container'), 'container');
+  var consoleModules       = transpile(es6PackageLib('ember-console'), 'ember-console');
+  var debugModules         = transpile(es6PackageLib('ember-debug'), 'ember-debug');
+  var environmentModules   = transpile(es6PackageLib('ember-environment'), 'ember-environment');
+  var metalModules         = transpile(es6PackageLib('ember-metal'), 'ember-metal');
+  var runtimeModules       = transpile(es6PackageLib('ember-runtime'), 'ember-runtime');
 
-  var glimmerStatus = features['ember-glimmer'];
-  if (glimmerStatus === null || glimmerStatus === true) {
-    addGlimmerPackage(vendorPackages, 'glimmer');
-    addGlimmerPackage(vendorPackages, 'glimmer-compiler');
-    addGlimmerPackage(vendorPackages, 'glimmer-object');
-    addGlimmerPackage(vendorPackages, 'glimmer-object-reference');
-    addGlimmerPackage(vendorPackages, 'glimmer-reference');
-    addGlimmerPackage(vendorPackages, 'glimmer-runtime');
-    addGlimmerPackage(vendorPackages, 'glimmer-syntax');
-    addGlimmerPackage(vendorPackages, 'glimmer-test-helpers');
-    addGlimmerPackage(vendorPackages, 'glimmer-util');
-    addGlimmerPackage(vendorPackages, 'glimmer-wire-format');
-    addGlimmerPackage(vendorPackages, 'handlebars'); // inlined parser and whatnot
-
-    vendorPackages['glimmer-engine-tests'] = find(glimmerEngine, {
-      include: [
-        'amd/glimmer-tests.amd.js',
-        'amd/glimmer-tests.amd.map'
-      ]
-    });
-  }
-
-  var emberBuild = new EmberBuild({
-    babel: {
-      development: babelConfigFor('development'),
-      production: babelConfigFor('production')
-    },
-    htmlbars: require('htmlbars'),
-    packages: packages,
-    vendoredPackages: vendorPackages
+  var merged = new MergeTrees([
+    loader(),
+    backburnerModules,
+    containerModules,
+    rsvpModules,
+    consoleModules,
+    debugModules,
+    environmentModules,
+    metalModules,
+    runtimeModules
+  ], {
+    annotation: 'modules'
   });
 
-  return emberBuild.getDistTrees();
+  return new Concat(merged, {
+    // sourceMapConfig: {
+    //   enabled: true
+    // },
+    header: ';(function() {',
+    headerFiles: ['loader/index.js'],
+    inputFiles: ['**/*.js'],
+    footer: 'requireModule("ember-runtime") }());',
+    outputFile: 'ember-runtime.js',
+    allowNone: false,
+    annotation: 'ember-runtime.js'
+  });
+
+  // var whitelist = null;
+  // var babelhelpers = babel.buildExternalHelpers(whitelist, 'var');
+
+  // return mergedModules;
+}
+
+function replaceDefaultFeatures(babel) {
+  var t = babel.types;
+  return new babel.Plugin('replace-default-features', {
+    visitor: {
+      VariableDeclarator: function(node) {
+        if (node.id.name === 'KNOWN_FEATURES' &&
+            node.init.name === 'DEFAULT_FEATURES') {
+          var features = JSON.parse(fs.readFileSync('features.json', 'utf8')).features;
+          var keys = Object.keys(features);
+          node.init = t.objectExpression(keys.map(function (key) {
+            return t.property('init', t.literal(key), t.literal(features[key]));
+          }));
+        }
+      }
+    }
+  });
+}
+
+function enifedFormatter(babel) {
+  var t = babel.types;
+  return new babel.Plugin('define-to-enifed', {
+    visitor: {
+      CallExpression: function(node){
+        if (t.isIdentifier(node.callee, {name: 'define'})){
+          node.callee = t.identifier('enifed');
+        }
+      },
+      BlockStatement: function(){
+        this.skip();
+      }
+    }
+  });
 };

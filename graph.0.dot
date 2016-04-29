@@ -1,0 +1,168 @@
+digraph G { ratio = "auto" 0 [shape=box, style=solid, colorscheme="rdylbu9", color=2, label=" 0 
+SourceMapConcat: ember-runtime.js
+ self time (2007ms) 
+ total time (2355ms)
+ "]
+ 1 -> 0[penwidth=3 ] 
+ 1 [shape=circle, style=dashed, colorscheme="rdylbu9", color=7, label=" 1 
+BroccoliMergeTrees: modules
+ self time (12ms) 
+ total time (347ms)
+ "]
+ 22 -> 1[penwidth=3 ] 
+ 25 -> 1[penwidth=1.5 ] 
+ 10 -> 1[penwidth=0.5 ] 
+ 4 -> 1[penwidth=0.5 ] 
+ 7 -> 1[penwidth=0.5 ] 
+ 16 -> 1[penwidth=0.5 ] 
+ 19 -> 1[penwidth=0.5 ] 
+ 2 -> 1[penwidth=0.5 ] 
+ 13 -> 1[penwidth=0.5 ] 
+ 22 [shape=box, style=solid, colorscheme="rdylbu9", color=5, label=" 22 
+Babel
+ self time (103ms) 
+ total time (117ms)
+ "]
+ 23 -> 22[penwidth=3 ] 
+ 23 [shape=box, style=dashed, colorscheme="rdylbu9", color=7, label=" 23 
+Funnel: ember-metal
+ self time (13ms) 
+ total time (13ms)
+ "]
+ 24 -> 23[penwidth=3 ] 
+ 24 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 24 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 25 [shape=box, style=solid, colorscheme="rdylbu9", color=6, label=" 25 
+Babel
+ self time (92ms) 
+ total time (107ms)
+ "]
+ 26 -> 25[penwidth=0.5 ] 
+ 26 [shape=box, style=dashed, colorscheme="rdylbu9", color=7, label=" 26 
+Funnel: ember-runtime
+ self time (15ms) 
+ total time (15ms)
+ "]
+ 27 -> 26[penwidth=0.5 ] 
+ 27 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 27 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 10 [shape=box, style=solid, colorscheme="rdylbu9", color=7, label=" 10 
+Babel
+ self time (36ms) 
+ total time (44ms)
+ "]
+ 11 -> 10[penwidth=0.5 ] 
+ 11 [shape=box, style=dashed, colorscheme="rdylbu9", color=8, label=" 11 
+Funnel: rsvp
+ self time (7ms) 
+ total time (7ms)
+ "]
+ 12 -> 11[penwidth=0.5 ] 
+ 12 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 12 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 4 [shape=box, style=solid, colorscheme="rdylbu9", color=7, label=" 4 
+Babel
+ self time (18ms) 
+ total time (22ms)
+ "]
+ 5 -> 4[penwidth=0.5 ] 
+ 5 [shape=box, style=dashed, colorscheme="rdylbu9", color=9, label=" 5 
+Funnel: backburner
+ self time (4ms) 
+ total time (4ms)
+ "]
+ 6 -> 5[penwidth=0.5 ] 
+ 6 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 6 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 7 [shape=box, style=solid, colorscheme="rdylbu9", color=8, label=" 7 
+Babel
+ self time (8ms) 
+ total time (11ms)
+ "]
+ 8 -> 7[penwidth=0.5 ] 
+ 8 [shape=box, style=dashed, colorscheme="rdylbu9", color=9, label=" 8 
+Funnel: container
+ self time (2ms) 
+ total time (2ms)
+ "]
+ 9 -> 8[penwidth=0.5 ] 
+ 9 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 9 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 16 [shape=box, style=solid, colorscheme="rdylbu9", color=8, label=" 16 
+Babel
+ self time (7ms) 
+ total time (10ms)
+ "]
+ 17 -> 16[penwidth=0.5 ] 
+ 17 [shape=box, style=dashed, colorscheme="rdylbu9", color=9, label=" 17 
+Funnel: ember-debug
+ self time (3ms) 
+ total time (3ms)
+ "]
+ 18 -> 17[penwidth=0.5 ] 
+ 18 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 18 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 19 [shape=box, style=solid, colorscheme="rdylbu9", color=8, label=" 19 
+Babel
+ self time (5ms) 
+ total time (7ms)
+ "]
+ 20 -> 19[penwidth=0.5 ] 
+ 20 [shape=box, style=dashed, colorscheme="rdylbu9", color=9, label=" 20 
+Funnel: ember-environment
+ self time (1ms) 
+ total time (1ms)
+ "]
+ 21 -> 20[penwidth=0.5 ] 
+ 21 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 21 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 2 [shape=box, style=dashed, colorscheme="rdylbu9", color=8, label=" 2 
+Funnel: loader
+ self time (6ms) 
+ total time (7ms)
+ "]
+ 3 -> 2[penwidth=0.5 ] 
+ 3 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 3 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+ 13 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 13 
+Babel
+ self time (3ms) 
+ total time (5ms)
+ "]
+ 14 -> 13[penwidth=0.5 ] 
+ 14 [shape=box, style=dashed, colorscheme="rdylbu9", color=9, label=" 14 
+Funnel: ember-console
+ self time (1ms) 
+ total time (1ms)
+ "]
+ 15 -> 14[penwidth=0.5 ] 
+ 15 [shape=box, style=solid, colorscheme="rdylbu9", color=9, label=" 15 
+String
+ self time (0ms) 
+ total time (0ms)
+ "]
+}
