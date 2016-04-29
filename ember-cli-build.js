@@ -21,9 +21,6 @@ function transpile(input, annotation) {
     plugins: [{
       transformer: enifedFormatter,
       position: 'after'
-    }, {
-      transformer: replaceDefaultFeatures,
-      position: 'after'
     }],
     whitelist: [
       'es6.templateLiterals',
@@ -41,7 +38,7 @@ function transpile(input, annotation) {
     ]
   });
   // can't seem to annotate transpiler
-  // plugin.annotation = annotation;
+  plugin._annotation = input._annotation;
   return plugin;
 }
 
@@ -61,30 +58,60 @@ function loader() {
   });
 }
 
+var getVersion = require('git-repo-version');
+var version = getVersion().replace(/^v/, '');
+
+function emberVersion() {
+  return new Creator(
+    'ember-version.js',
+    'export default ' + JSON.stringify(version) + ';', {
+    annotation: 'ember-version'
+  });
+}
+
+// TODO, make this a read from the tree
+var featuresJSON = JSON.parse(fs.readFileSync('features.json', 'utf8')).features;
+
+function knownFeatures() {
+  return new Creator(
+    'ember-known-features.js',
+    'export default ' + JSON.stringify(featuresJSON) + ';', {
+    annotation: 'ember-known-features'
+  });
+}
+
 module.exports = function () {
-  var backburnerModules         = transpile(
+  var backburnerModules = transpile(
     new Funnel('bower_components/backburner/lib', {
       include: ['backburner.js', 'backburner/**/*.js'],
       destDir: '/',
       annotation: 'backburner'
     }), 'backburner'
   );
-  var rsvpModules         = transpile(
+
+  var rsvpModules = transpile(
     new Funnel('bower_components/rsvp/lib', {
       include: ['rsvp.js', 'rsvp/**/*.js'],
       destDir: '/',
       annotation: 'rsvp'
     }), 'rsvp'
   );
-  var containerModules     = transpile(es6PackageLib('container'), 'container');
-  var consoleModules       = transpile(es6PackageLib('ember-console'), 'ember-console');
-  var debugModules         = transpile(es6PackageLib('ember-debug'), 'ember-debug');
-  var environmentModules   = transpile(es6PackageLib('ember-environment'), 'ember-environment');
-  var metalModules         = transpile(es6PackageLib('ember-metal'), 'ember-metal');
-  var runtimeModules       = transpile(es6PackageLib('ember-runtime'), 'ember-runtime');
+
+  var versionModule = transpile(emberVersion());
+  var knownFeaturesModule = transpile(knownFeatures());
+
+  // merge and babel once.
+  var containerModules     = transpile(es6PackageLib('container'));
+  var consoleModules       = transpile(es6PackageLib('ember-console'));
+  var debugModules         = transpile(es6PackageLib('ember-debug'));
+  var environmentModules   = transpile(es6PackageLib('ember-environment'));
+  var metalModules         = transpile(es6PackageLib('ember-metal'));
+  var runtimeModules       = transpile(es6PackageLib('ember-runtime'));
 
   var merged = new MergeTrees([
     loader(),
+    versionModule,
+    knownFeaturesModule,
     backburnerModules,
     containerModules,
     rsvpModules,
@@ -114,24 +141,6 @@ module.exports = function () {
   // var babelhelpers = babel.buildExternalHelpers(whitelist, 'var');
 
   // return mergedModules;
-}
-
-function replaceDefaultFeatures(babel) {
-  var t = babel.types;
-  return new babel.Plugin('replace-default-features', {
-    visitor: {
-      VariableDeclarator: function(node) {
-        if (node.id.name === 'KNOWN_FEATURES' &&
-            node.init.name === 'DEFAULT_FEATURES') {
-          var features = JSON.parse(fs.readFileSync('features.json', 'utf8')).features;
-          var keys = Object.keys(features);
-          node.init = t.objectExpression(keys.map(function (key) {
-            return t.property('init', t.literal(key), t.literal(features[key]));
-          }));
-        }
-      }
-    }
-  });
 }
 
 function enifedFormatter(babel) {

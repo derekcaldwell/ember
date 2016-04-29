@@ -1,5 +1,6 @@
 import { ENV } from 'ember-environment';
 import assign from 'ember-metal/assign';
+import featuresJSON from 'ember-known-features';
 
 /**
   The hash of enabled Canary features. Add to this, any canary features
@@ -14,7 +15,8 @@ import assign from 'ember-metal/assign';
   @since 1.1.0
   @public
 */
-export const KNOWN_FEATURES = DEFAULT_FEATURES; // jshint ignore:line
+export const KNOWN_FEATURES = featuresJSON;
+
 export let FEATURES = assign(KNOWN_FEATURES, ENV.FEATURES);
 
 /**

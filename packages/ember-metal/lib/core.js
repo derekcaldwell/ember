@@ -1,13 +1,14 @@
 import require from 'require';
 
 import { context } from 'ember-environment';
+import VERSION from 'ember-version';
 
 /**
 @module ember
 @submodule ember-metal
 */
 
-/**
+`/**
   This namespace contains all Ember methods and functions. Future versions of
   Ember may overwrite this namespace and therefore, you should avoid adding any
   new properties.
@@ -22,7 +23,7 @@ import { context } from 'ember-environment';
   @static
   @version VERSION_STRING_PLACEHOLDER
   @public
-*/
+*/`
 const Ember = (typeof context.imports.Ember === 'object' && context.imports.Ember) || {};
 
 // Make sure these are set whether Ember was already defined or not
@@ -45,11 +46,10 @@ Ember.runInDebug = debugModule.runInDebug;
 
   @property VERSION
   @type String
-  @default 'VERSION_STRING_PLACEHOLDER'
   @static
   @public
 */
-Ember.VERSION = 'VERSION_STRING_PLACEHOLDER';
+Ember.VERSION = VERSION;
 
 // ..........................................................
 // BOOTSTRAP
