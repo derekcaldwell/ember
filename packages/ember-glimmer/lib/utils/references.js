@@ -1,6 +1,7 @@
 import { get } from 'ember-metal/property_get';
 import { set } from 'ember-metal/property_set';
 import { tagFor } from 'ember-metal/tags';
+import { didRender } from 'ember-metal/transaction';
 import symbol from 'ember-metal/symbol';
 import { CURRENT_TAG, CONSTANT_TAG, VOLATILE_TAG, ConstReference, DirtyableTag, UpdatableTag, combine, isConst } from 'glimmer-reference';
 import { ConditionalReference as GlimmerConditionalReference, NULL_REFERENCE, UNDEFINED_REFERENCE } from 'glimmer-runtime';
@@ -86,6 +87,35 @@ export class RootReference extends ConstReference {
   }
 }
 
+class TwoWayFlushDetectionTag {
+  constructor(tag, key) {
+    this.tag = tag;
+    this.parent = null;
+    this.key = key;
+  }
+
+  value() {
+    return this.tag.value();
+  }
+
+  validate(ticket) {
+    let { parent, key } = this;
+
+    let isValid = this.tag.validate(ticket);
+
+    if (isValid && parent) {
+      didRender(parent, key);
+    }
+
+    return isValid;
+  }
+
+  didCompute(parent) {
+    this.parent = parent;
+    didRender(parent, this.key);
+  }
+}
+
 export class PropertyReference extends CachedReference { // jshint ignore:line
   constructor(parentReference, propertyKey) {
     super();
@@ -93,7 +123,13 @@ export class PropertyReference extends CachedReference { // jshint ignore:line
     let parentReferenceTag = parentReference.tag;
     let parentObjectTag = new UpdatableTag(CURRENT_TAG);
 
-    this.tag = combine([parentReferenceTag, parentObjectTag]);
+    if (isEnabled('ember-glimmer-allow-two-way-reflush')) {
+      let tag = combine([parentReferenceTag, parentObjectTag]);
+      this.tag = new TwoWayFlushDetectionTag(tag, propertyKey);
+    } else {
+      this.tag = combine([parentReferenceTag, parentObjectTag]);
+    }
+
     this._parentReference = parentReference;
     this._parentObjectTag = parentObjectTag;
     this._propertyKey = propertyKey;
@@ -115,6 +151,11 @@ export class PropertyReference extends CachedReference { // jshint ignore:line
         let meta = metaFor(parentValue);
         watchKey(parentValue, _propertyKey, meta);
       }
+
+      if (isEnabled('ember-glimmer-allow-two-way-reflush')) {
+        this.tag.didCompute(parentValue);
+      }
+
       return get(parentValue, _propertyKey);
     } else {
       return null;

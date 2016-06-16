@@ -2,6 +2,19 @@ import { RootReference } from './utils/references';
 import run from 'ember-metal/run_loop';
 import { setHasViews } from 'ember-metal/tags';
 import { CURRENT_TAG, UNDEFINED_REFERENCE } from 'glimmer-reference';
+import _runInTransaction from 'ember-metal/transaction';
+import isEnabled from 'ember-metal/features';
+
+let runInTransaction;
+
+if (isEnabled('ember-glimmer-allow-two-way-reflush')) {
+  runInTransaction = _runInTransaction;
+} else {
+  runInTransaction = callback => {
+    callback();
+    return false;
+  };
+}
 
 const { backburner } = run;
 
@@ -108,7 +121,13 @@ class Scheduler {
     if (CURRENT_TAG.validate(lastTagValue)) { return; }
     let view = this._root;
     if (view) {
-      view.renderer.rerender(view);
+      if (isEnabled('ember-glimmer-allow-two-way-reflush')) {
+        let shouldReflush;
+        let callback = () => view.renderer.rerender(view, { alwaysRevalidate: true });
+        do { shouldReflush = runInTransaction(callback); } while (shouldReflush);
+      } else {
+        view.renderer.rerender(view);
+      }
     }
   }
 }
@@ -140,9 +159,24 @@ class Renderer {
       isTopLevel: true
     });
 
-    env.begin();
-    let result = view.template.asEntryPoint().render(self, env, { appendTo: target, dynamicScope });
-    env.commit();
+    let result, shouldReflush, afterRender, didChangeAfterRender;
+
+    let callback = () => {
+      result = view.template.asEntryPoint().render(self, env, { appendTo: target, dynamicScope });
+    };
+
+    let rerender = () => result.rerender({ alwaysRevalidate: shouldReflush });
+
+    do {
+      if (didChangeAfterRender) { debugger; }
+
+      env.begin();
+      shouldReflush = runInTransaction(callback);
+      afterRender = CURRENT_TAG.value();
+      env.commit();
+      didChangeAfterRender = !CURRENT_TAG.validate(afterRender);
+      callback = rerender;
+    } while (shouldReflush || didChangeAfterRender);
 
     this._scheduler.registerView(view);
 
@@ -164,9 +198,24 @@ class Renderer {
       isTopLevel: true
     });
 
-    env.begin();
-    let result = view.template.asEntryPoint().render(self, env, { appendTo: target, dynamicScope });
-    env.commit();
+    let result, shouldReflush, afterRender, didChangeAfterRender;
+
+    let callback = () => {
+      result = view.template.asEntryPoint().render(self, env, { appendTo: target, dynamicScope });
+    };
+
+    let rerender = () => result.rerender({ alwaysRevalidate: shouldReflush });
+
+    do {
+      if (didChangeAfterRender) { debugger; }
+
+      env.begin();
+      shouldReflush = runInTransaction(callback);
+      afterRender = CURRENT_TAG.value();
+      env.commit();
+      didChangeAfterRender = !CURRENT_TAG.validate(afterRender);
+      callback = rerender;
+    } while (shouldReflush || didChangeAfterRender);
 
     this._scheduler.registerView(view);
 
@@ -178,7 +227,23 @@ class Renderer {
   }
 
   rerender(view) {
-    (view['_renderResult'] || this._root['_renderResult']).rerender();
+    let { _env: env } = this;
+
+    let renderResult = view['_renderResult'] || this._root['_renderResult'];
+    let shouldReflush = false;
+    let afterRender, didChangeAfterRender;
+
+    let callback = () => renderResult.rerender({ alwaysRevalidate: shouldReflush });
+
+    do {
+      if (didChangeAfterRender) { debugger; }
+
+      env.begin();
+      shouldReflush = runInTransaction(callback);
+      afterRender = CURRENT_TAG.value();
+      env.commit();
+      didChangeAfterRender = !CURRENT_TAG.validate(afterRender);
+    } while (shouldReflush || didChangeAfterRender);
   }
 
   remove(view) {

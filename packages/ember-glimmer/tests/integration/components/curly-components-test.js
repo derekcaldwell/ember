@@ -2,6 +2,7 @@
 import isEnabled from 'ember-metal/features';
 import { set } from 'ember-metal/property_set';
 import { observer } from 'ember-metal/mixin';
+import EmberObject from 'ember-runtime/system/object';
 import { Component, compile } from '../../utils/helpers';
 import { A as emberA } from 'ember-runtime/system/native_array';
 import { strip } from '../../utils/abstract-test-case';
@@ -1966,7 +1967,7 @@ moduleFor('Components test: curly components', class extends RenderingTest {
     assert.equal(outer._viewRegistry, viewRegistry);
   }
 
-  ['@htmlbars component should rerender when a property is changed during children\'s rendering'](assert) {
+  ['@test component should rerender when a property is changed during children\'s rendering'](assert) {
     expectDeprecation(/modified value twice in a single render/);
 
     let outer, middle;
@@ -1997,6 +1998,7 @@ moduleFor('Components test: curly components', class extends RenderingTest {
       ComponentClass: Component.extend({
         value: null,
         pushDataUp: observer('value', function() {
+          window.billy = true;
           middle.set('value', this.get('value'));
         })
       }),
@@ -2016,17 +2018,74 @@ moduleFor('Components test: curly components', class extends RenderingTest {
     this.runTask(() => outer.set('value', 2));
 
     assert.equal(this.$('#inner-value').text(), '2', 'second render of inner');
-    assert.equal(this.$('#middle-value').text(), '2', 'second render of middle');
+    assert.equal(this.$('#middle-value').text(), '2', 'second render of middle'); // FAIL
 
     this.runTask(() => outer.set('value', 3));
 
     assert.equal(this.$('#inner-value').text(), '3', 'third render of inner');
-    assert.equal(this.$('#middle-value').text(), '3', 'third render of middle');
+    assert.equal(this.$('#middle-value').text(), '3', 'third render of middle'); // FAIL
 
     this.runTask(() => outer.set('value', 1));
 
     assert.equal(this.$('#inner-value').text(), '1', 'reset render of inner');
-    assert.equal(this.$('#middle-value').text(), '1', 'reset render of middle');
+    assert.equal(this.$('#middle-value').text(), '1', 'reset render of middle'); // FAIL
+  }
+
+  ['@test component should rerender when a shared dependency is changed during children\'s rendering'](assert) {
+    expectDeprecation(/modified wrapper.content twice in a single render/);
+
+    let outer, middle;
+
+    this.registerComponent('x-outer', {
+      ComponentClass: Component.extend({
+        init() {
+          this._super(...arguments);
+          outer = this;
+        },
+        value: 1,
+        wrapper: EmberObject.create({ content: null })
+      }),
+      template: '<div id="outer-value">{{wrapper.content}}</div> {{x-inner value=value wrapper=wrapper}}'
+    });
+
+    this.registerComponent('x-inner', {
+      ComponentClass: Component.extend({
+        init() {
+          this._super(...arguments);
+          middle = this;
+        },
+        didReceiveAttrs() {
+          this.get('wrapper').set('content', this.get('value'));
+        },
+        value: null
+      }),
+      template: '<div id="inner-value">{{wrapper.content}}</div>'
+    });
+
+    this.render('{{x-outer}}');
+
+    assert.equal(this.$('#inner-value').text(), '1', 'initial render of inner');
+    assert.equal(this.$('#outer-value').text(), '1', 'initial render of outer');
+
+    this.runTask(() => this.rerender());
+
+    assert.equal(this.$('#inner-value').text(), '1', 'initial render of inner');
+    assert.equal(this.$('#outer-value').text(), '1', 'initial render of outer');
+
+    this.runTask(() => outer.set('value', 2));
+
+    assert.equal(this.$('#inner-value').text(), '2', 'second render of inner');
+    assert.equal(this.$('#outer-value').text(), '2', 'second render of outer');
+
+    this.runTask(() => outer.set('value', 3));
+
+    assert.equal(this.$('#inner-value').text(), '3', 'third render of inner');
+    assert.equal(this.$('#outer-value').text(), '3', 'third render of outer');
+
+    this.runTask(() => outer.set('value', 1));
+
+    assert.equal(this.$('#inner-value').text(), '1', 'reset render of inner');
+    assert.equal(this.$('#outer-value').text(), '1', 'reset render of outer');
   }
 
   ['@test non-block with each rendering child components']() {
@@ -2132,53 +2191,6 @@ moduleFor('Components test: curly components', class extends RenderingTest {
 
       this.assertText('blarkporybaz- Click Me');
     }
-  }
-
-  ['@glimmer cannot set an immutable argument']() {
-    let component;
-    let FooBarComponent = Component.extend({
-      init() {
-        this._super(...arguments);
-        component = this;
-      }
-    });
-
-    this.registerComponent('foo-bar', {
-      ComponentClass: FooBarComponent,
-
-      template: '{{foo}} – {{bar}}'
-    });
-
-    this.render('{{foo-bar foo="foo" bar=(concat localBar)}}', {
-      localBar: 'bar'
-    });
-
-    this.assertText('foo – bar');
-
-    this.runTask(() => this.rerender());
-
-    this.assertText('foo – bar');
-
-    if (isEnabled('mandatory-setter')) {
-      expectAssertion(() => {
-        component.foo = 'new foo';
-      }, /You must use Ember\.set\(\) to set the `foo` property \(of .+\) to `new foo`\./);
-
-      expectAssertion(() => {
-        component.bar = 'new bar';
-      }, /You must use Ember\.set\(\) to set the `bar` property \(of .+\) to `new bar`\./);
-      this.assertText('foo – bar');
-    }
-
-    throws(() => {
-      this.runTask(() => { component.set('foo', 'new foo'); });
-    }, 'Cannot set the `foo` property (on component foo-bar) to `new foo`. The `foo` property came from an immutable binding in the template, such as {{foo-bar foo="string"}} or {{foo-bar foo=(if theTruth "truth" "false")}}.');
-
-    throws(() => {
-      this.runTask(() => { component.set('bar', 'new bar'); });
-    }, 'Cannot set the `bar` property (on component foo-bar) to `new bar`. The `bar` property came from an immutable binding in the template, such as {{foo-bar bar="string"}} or {{foo-bar bar=(if theTruth "truth" "false")}}.');
-
-    this.assertText('foo – bar');
   }
 
   ['@test a two way binding flows upstream when consumed in the template']() {

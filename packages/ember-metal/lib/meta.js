@@ -46,6 +46,10 @@ let members = {
   tag: ownCustomObject
 };
 
+if (isEnabled('mandatory-setter')) {
+  members.lastRendered = ownMap;
+}
+
 let memberNames = Object.keys(members);
 const META_FIELD = '__ember_meta__';
 
@@ -73,6 +77,10 @@ function Meta(obj, parentMeta) {
   // have detailed knowledge of how each property should really be
   // inherited, and we can optimize it much better than JS runtimes.
   this.parent = parentMeta;
+
+  if (isEnabled('ember-glimmer-allow-two-way-reflush')) {
+    this._lastRendered = undefined;
+  }
 
   this._initializeListeners();
 }

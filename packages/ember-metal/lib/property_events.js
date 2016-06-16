@@ -13,6 +13,8 @@ import {
 } from './tags';
 import ObserverSet from 'ember-metal/observer_set';
 import symbol from 'ember-metal/symbol';
+import isEnabled from 'ember-metal/features';
+import { assertNotRendered } from 'ember-metal/transaction';
 
 export let PROPERTY_DID_CHANGE = symbol('PROPERTY_DID_CHANGE');
 
@@ -108,6 +110,10 @@ function propertyDidChange(obj, keyName) {
   }
 
   markObjectAsDirty(m);
+
+  if (isEnabled('ember-glimmer-allow-two-way-reflush')) {
+    assertNotRendered(obj, keyName, m);
+  }
 }
 
 
