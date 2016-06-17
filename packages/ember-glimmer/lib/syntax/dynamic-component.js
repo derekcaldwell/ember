@@ -1,18 +1,20 @@
 import { ArgsSyntax, StatementSyntax } from 'glimmer-runtime';
 import { ConstReference, isConst, UNDEFINED_REFERENCE } from 'glimmer-reference';
 
+// ⬇️ {{component source ...extra args}}
 function dynamicComponentFor(vm) {
-  let env     = vm.env;
-  let args    = vm.getArgs();
-  let nameRef = args.positional.at(0);
+  let env    = vm.env;
+  let args   = vm.getArgs();
+  let source = args.positional.at(0);
 
-  if (isConst(nameRef)) {
-    let name = nameRef.value();
+  if (isConst(source)) {
+    let name = source.value();
     let definition = env.getComponentDefinition([name]);
-
     return new ConstReference(definition);
+  } else if (isComponentDefinitionReference(source)) {
+    return source;
   } else {
-    return new DynamicComponentReference({ nameRef, env });
+    return new DynamicComponentReference({ source, env });
   }
 }
 
@@ -31,11 +33,18 @@ export class DynamicComponentSyntax extends StatementSyntax {
   }
 }
 
+export const COMPONENT_DEFINITION_REFERENCE = symbol('COMPONENT_DEFINITION_REFERENCE');
+
+function isComponentDefinitionReference(ref) {
+  return ref && ref[COMPONENT_DEFINITION_REFERENCE];
+}
+
 class DynamicComponentReference {
   constructor({ nameRef, env }) {
     this.nameRef = nameRef;
     this.env = env;
     this.tag = nameRef.tag;
+    this[COMPONENT_DEFINITION_REFERENCE] = true;
   }
 
   value() {
