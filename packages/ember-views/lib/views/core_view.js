@@ -4,9 +4,9 @@ import EmberObject from 'ember-runtime/system/object';
 import Evented from 'ember-runtime/mixins/evented';
 import ActionHandler, { deprecateUnderscoreActions } from 'ember-runtime/mixins/action_handler';
 import { typeOf } from 'ember-runtime/utils';
-
 import { cloneStates, states } from 'ember-views/views/states';
 import require from 'require';
+import isEnabled from 'ember-metal/features';
 
 // Normally, the renderer is injected by the container when the view is looked
 // up. However, if someone creates a view without looking it up via the
@@ -54,7 +54,13 @@ const CoreView = EmberObject.extend(Evented, ActionHandler, {
     // Fallback for legacy cases where the view was created directly
     // via `create()` instead of going through the container.
     if (!this.renderer) {
-      renderer = renderer || htmlbarsRenderer();
+      if (isEnabled('ember-glimmer')) {
+        renderer = renderer || glimmerRenderer();
+        this.template = this.template || buildEmptyGlimmerTemplate();
+      } else {
+        renderer = renderer || htmlbarsRenderer();
+      }
+
       this.renderer = renderer;
     }
   },
@@ -110,12 +116,30 @@ CoreView.reopenClass({
   isViewFactory: true
 });
 
-let InteractiveRenderer, DOMHelper;
+let InteractiveRenderer, DOMHelper, GlimmerEnvironment, environment;
+function glimmerRenderer() {
+  if (renderer) { return renderer; }
+
+  DOMHelper = DOMHelper || require('ember-glimmer/dom').default;
+  GlimmerEnvironment = GlimmerEnvironment || require('ember-glimmer/environment').default;
+  InteractiveRenderer = InteractiveRenderer || require('ember-glimmer/renderer').InteractiveRenderer;
+
+  let domHelper = new DOMHelper(document);
+  environment = new GlimmerEnvironment({ dom: domHelper });
+
+  return renderer = InteractiveRenderer.create({ dom: domHelper, env: environment });
+}
+
+function buildEmptyGlimmerTemplate() {
+  let Template = require('ember-glimmer/templates/empty').default;
+
+  return Template.create({ env: environment });
+}
+
 function htmlbarsRenderer() {
   DOMHelper = DOMHelper || require('ember-htmlbars/system/dom-helper').default;
   InteractiveRenderer = InteractiveRenderer || require('ember-htmlbars/renderer').InteractiveRenderer;
-
-  return InteractiveRenderer.create({ dom: new DOMHelper() });
+  return renderer = InteractiveRenderer.create({ dom: new DOMHelper(document) });
 }
 
 export default CoreView;
