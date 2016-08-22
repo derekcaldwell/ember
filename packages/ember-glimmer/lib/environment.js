@@ -2,7 +2,7 @@ import lookupPartial, { hasPartial } from 'ember-views/system/lookup_partial';
 import {
   Environment as GlimmerEnvironment,
   HelperSyntax,
-  AttributeChangeList,
+  AttributeManager,
   isSafeString,
   compileLayout
 } from 'glimmer-runtime';
@@ -360,33 +360,33 @@ export default class Environment extends GlimmerEnvironment {
 }
 
 runInDebug(() => {
-  let StyleAttributeChangeList = {
-    setAttribute(dom, element, attr, value) {
+  class StyleAttributeManager extends AttributeManager {
+    setAttribute(dom, element, value) {
       warn(STYLE_WARNING, (() => {
         if (value === null || value === undefined || isSafeString(value)) {
           return true;
         }
         return false;
       })(), { id: 'ember-htmlbars.style-xss-warning' });
-      AttributeChangeList.setAttribute(...arguments);
-    },
-
-    updateAttribute(dom, element, attr, value) {
-      warn(STYLE_WARNING, (() => {
-        if (value === null || value === undefined || isSafeString(value)) {
-          return true;
-        }
-        return false;
-      })(), { id: 'ember-htmlbars.style-xss-warning' });
-      AttributeChangeList.updateAttribute(...arguments);
+      super.setAttribute(...arguments);
     }
-  };
 
-  Environment.prototype.attributeFor = function(element, attribute, isTrusting, namespace) {
+    updateAttribute(dom, element, value) {
+      warn(STYLE_WARNING, (() => {
+        if (value === null || value === undefined || isSafeString(value)) {
+          return true;
+        }
+        return false;
+      })(), { id: 'ember-htmlbars.style-xss-warning' });
+      super.updateAttribute(...arguments);
+    }
+  }
+
+  Environment.prototype.lookupAttribute = function(element, attribute, isTrusting, namespace) {
     if (attribute === 'style' && !isTrusting) {
-      return StyleAttributeChangeList;
+      return new StyleAttributeManager(attribute);
     }
 
-    return GlimmerEnvironment.prototype.attributeFor.call(this, element, attribute, isTrusting);
+    return GlimmerEnvironment.prototype.lookupAttribute.call(this, element, attribute, isTrusting);
   };
 });
