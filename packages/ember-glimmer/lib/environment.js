@@ -382,9 +382,11 @@ runInDebug(() => {
     }
   }
 
+  let styleAttributeManager = new StyleAttributeManager('style');
+
   Environment.prototype.lookupAttribute = function(element, attribute, isTrusting, namespace) {
     if (attribute === 'style' && !isTrusting) {
-      return new StyleAttributeManager(attribute);
+      return styleAttributeManager;
     }
 
     return GlimmerEnvironment.prototype.lookupAttribute.call(this, element, attribute, isTrusting);
