@@ -1,142 +1,101 @@
-/* jshint node: true */
+'use strict';
+const Funnel = require('broccoli-funnel');
+const MergeTrees = require('broccoli-merge-trees');
+const StringReplace = require('broccoli-string-replace');
+const getGitInfo = require('git-repo-info');
+const path = require('path');
+const fs = require('fs');
 
-// To create fast production builds (without ES3 support, minification, derequire, or JSHint)
-// run the following:
-//
-// DISABLE_ES3=true DISABLE_JSCS=true DISABLE_JSHINT=true DISABLE_MIN=true DISABLE_DEREQUIRE=true ember serve --environment=production
+const EMBER_VERSION = getVersion();
+const VERSION_PLACEHOLDER = /VERSION_STRING_PLACEHOLDER/g;
+const RAW_FEATURES = fs.readFileSync('./features.json', {
+  encoding: 'utf8'
+});
+const PROD_FEATURES = getFeatures('production');
+const DEBUG_FEATURES = getFeatures('development');
 
-var fs = require('fs');
-var path = require('path');
-
-var EmberBuild = require('emberjs-build');
-var getPackages   = require('./lib/packages');
-var getGitInfo = require('git-repo-info');
-
-var applyFeatureFlags = require('babel-plugin-feature-flags');
-var filterImports = require('babel-plugin-filter-imports');
-
-var vendoredPackage    = require('emberjs-build/lib/vendored-package');
-var htmlbarsPackage    = require('emberjs-build/lib/htmlbars-package');
-var vendoredES6Package = require('emberjs-build/lib/es6-vendored-package');
-
-var Funnel = require('broccoli-funnel');
-var Rollup = require('broccoli-rollup');
-
-var rollupEnifed = {
-  transformBundle(code, options) {
-    return {
-      code: code.replace(/\bdefine\(/, 'enifed('),
-      map: { mappings: null }
-    };
-  }
+module.exports = function () {
+  return new MergeTrees([
+    packageManagerJsonFiles(),
+    jquery(),
+    qunit(),
+    testIndex()
+  ], {
+    annotation: 'dist'
+  });
 };
 
-function dag() {
-  var es = new Funnel(path.dirname(require.resolve('dag-map')), {
-    files: ['dag-map.js'],
-    annotation: 'dag-map.js'
-  });
-  return new Rollup(es, {
-    rollup: {
-      plugins: [rollupEnifed],
-      entry: 'dag-map.js',
-      dest: 'dag-map.js',
-      format: 'amd',
-      moduleId: 'dag-map',
-      exports: 'named'
-    },
-    annotation: 'dag-map.js'
+function jquery() {
+  let jquery = require.resolve('jquery');
+  return new Funnel(path.dirname(jquery), {
+    files: ['jquery.js'],
+    destDir: 'jquery',
+    annotation: 'jquery/jquery.js'
   });
 }
 
-function backburner() {
-  var dist = path.dirname(require.resolve('backburner.js'));
-  dist = path.join(dist, 'es6');
-  return new Rollup(new Funnel(dist, {
-    files: ['backburner.js']
-  }), {
-    rollup: {
-      plugins: [rollupEnifed],
-      entry: 'backburner.js',
-      dest: 'backburner.js',
-      format: 'amd',
-      moduleId: 'backburner',
-      exports: 'named'
-    }
+function qunit() {
+  var qunitjs = require.resolve('qunitjs');
+  return new Funnel(path.dirname(qunitjs), {
+    files: ['qunit.js', 'qunit.css'],
+    destDir: 'qunit',
+    annotation: 'qunit/qunit.{js|css}'
   });
 }
 
-function rsvp() {
-  // TODO upstream
-  var version = require('./bower_components/rsvp/package').version;
-  var banner = fs.readFileSync(
-    path.resolve(__dirname, 'bower_components/rsvp/config/versionTemplate.txt'),
-    'utf8');
-  var rollup = new Rollup('bower_components/rsvp/lib', {
-    rollup: {
-      entry: 'rsvp.js',
-      plugins: [ rollupEnifed ],
-      banner: banner.replace('VERSION_PLACEHOLDER_STRING', version),
-      dest: 'rsvp.js',
-      format: 'amd',
-      exports: 'named',
-      moduleId: 'rsvp'
-    },
-    annotation: 'rsvp.js'
+function testIndex() {
+  var index = new Funnel('tests', {
+    files: ['index.html'],
+    destDir: 'tests',
+    annotation: 'tests/index.html'
   });
-  return rollup;
-}
-
-function routeRecognizer() {
-  var dist = path.dirname(require.resolve('route-recognizer'));
-  var es6 = new Funnel(path.join(dist, 'es6'), {
-    files: ['route-recognizer.js']
-  });
-  return new Rollup(es6, {
-    rollup: {
-      plugins: [rollupEnifed],
-      entry: 'route-recognizer.js',
-      dest: 'route-recognizer.js',
-      format: 'amd',
-      moduleId: 'route-recognizer',
-      exports: 'named'
-    }
+  return new StringReplace(index, {
+    files: ['tests/index.html'],
+    patterns: [{
+      match: /\{\{DEV_FEATURES\}\}/g,
+      replacement: JSON.stringify(DEBUG_FEATURES)
+    }, {
+      match: /\{\{PROD_FEATURES\}\}/g,
+      replacement: JSON.stringify(PROD_FEATURES)
+    }],
+    annotation: 'DEV_FEATURES | PROD_FEATURES'
   });
 }
 
-function router() {
-  // TODO upstream this to router.js and publish on npm
-  return new Rollup('bower_components/router.js/lib', {
-    rollup: {
-      plugins: [rollupEnifed, {
-        transform(code, id) {
-          if (/[^t][^e][^r]\/router\.js$/.test(id)) {
-            code += 'export { Transition } from \'./router/transition\';\n'
-          } else if (/\/router\/handler-info\/[^\/]+\.js$/.test(id)) {
-            code = code.replace(/\'router\//g, '\'../');
-          }
-          code = code.replace(/import\ Promise\ from \'rsvp\/promise\'/g, 'import { Promise } from \'rsvp\'')
-          return {
-            code: code,
-            map: { mappings: '' }
-          };
-        }
-      }],
-      external: ['route-recognizer', 'rsvp'],
-      entry: 'router.js',
-      dest: 'router.js',
-      format: 'amd',
-      moduleId: 'router',
-      exports: 'named'
-    },
-    annotation: 'router.js'
+function packageManagerJsonFiles() {
+  var packageJsons = new Funnel('config/package_manager_files', {
+    include: ['*.json'],
+    destDir: '/',
+    annotation: '*.json'
   });
+  packageJsons = new StringReplace(packageJsons, {
+    patterns: [{
+      match: VERSION_PLACEHOLDER,
+      replacement: EMBER_VERSION
+    }],
+    files: ['*.json'],
+    annotation: 'VERSION_STRING_PLACEHOLDER'
+  });
+
+  return packageJsons;
 }
 
-var featuresJson = fs.readFileSync('./features.json', { encoding: 'utf8' });
+function getVersion() {
+  var projectPath = process.cwd();
+  var info = getGitInfo(projectPath);
+  if (info.tag) {
+    return info.tag.replace(/^v/, '');
+  }
+
+  var packageVersion  = require(path.join(projectPath, 'package.json')).version;
+  var sha = info.sha || '';
+  var prefix = packageVersion + '-' + (process.env.BUILD_TYPE || info.branch);
+
+  return prefix + '+' + sha.slice(0, 8);
+}
 
 function getFeatures(environment) {
-  var features = JSON.parse(featuresJson).features;
+  var features = JSON.parse(RAW_FEATURES).features;
   var featureName;
 
   if (process.env.BUILD_TYPE === 'alpha') {
@@ -171,112 +130,3 @@ function getFeatures(environment) {
 
   return features;
 }
-
-function babelConfigFor(environment) {
-  var plugins = [];
-  var features = getFeatures(environment);
-  var includeDevHelpers = true;
-
-  plugins.push(applyFeatureFlags({
-    import: { module: 'ember-metal/features' },
-    features: features
-  }));
-
-  var isProduction = (environment === 'production');
-  if (isProduction) {
-    includeDevHelpers = false;
-    plugins.push(filterImports({
-      'ember-metal/debug': ['assert', 'debug', 'deprecate', 'info', 'runInDebug', 'warn', 'debugSeal', 'debugFreeze'],
-      'ember-metal': ['assert', 'debug', 'deprecate', 'info', 'runInDebug', 'warn', 'debugSeal', 'debugFreeze']
-    }));
-  }
-
-  return {
-    plugins: plugins,
-    includeDevHelpers: includeDevHelpers,
-    helperWhiteList: [
-      'inherits',
-      'class-call-check',
-      'tagged-template-literal-loose',
-      'slice',
-      'defaults',
-      'create-class',
-      'interop-export-wildcard'
-    ]
-  };
-}
-
-var glimmerEngine = require('glimmer-engine/ember-cli-build')({
-  shouldExternalizeHelpers: true,
-  stripRuntimeChecks: true
-});
-
-var find = require('broccoli-stew').find;
-
-function glimmerPackage(name) {
-  return find(glimmerEngine, 'named-amd/' + name + '/**/*.js');
-}
-
-function getVersion() {
-  var projectPath = process.cwd();
-  var info = getGitInfo(projectPath);
-  if (info.tag) {
-    return info.tag.replace(/^v/, '');
-  }
-
-  console.log('git repo info: ', info);
-
-  var packageVersion  = require(path.join(projectPath, 'package.json')).version;
-  var sha = info.sha || '';
-  var prefix = packageVersion + '-' + (process.env.BUILD_TYPE || info.branch || process.env.TRAVIS_BRANCH);
-
-  prefix = prefix.replace('master', 'canary');
-
-  return prefix + '+' + sha.slice(0, 8);
-}
-
-module.exports = function() {
-  var features = getFeatures();
-  var version = getVersion();
-
-  var vendorPackages = {
-    'external-helpers':      vendoredPackage('external-helpers'),
-    'loader':                vendoredPackage('loader'),
-    'rsvp':                  rsvp(),
-    'backburner':            backburner(),
-    'router':                router(),
-    'dag-map':               dag(),
-    'route-recognizer':      routeRecognizer(),
-    'simple-html-tokenizer': htmlbarsPackage('simple-html-tokenizer', { libPath: 'node_modules/glimmer-engine/dist/es6'}),
-
-    'glimmer':              glimmerPackage('glimmer'),
-    'glimmer-compiler':     glimmerPackage('glimmer-compiler'),
-    'glimmer-reference':    glimmerPackage('glimmer-reference'),
-    'glimmer-runtime':      glimmerPackage('glimmer-runtime'),
-    'glimmer-node':         glimmerPackage('glimmer-node'),
-    'glimmer-syntax':       glimmerPackage('glimmer-syntax'),
-    'glimmer-test-helpers': glimmerPackage('glimmer-test-helpers'),
-    'glimmer-util':         glimmerPackage('glimmer-util'),
-    'glimmer-wire-format':  glimmerPackage('glimmer-wire-format'),
-    'handlebars':           glimmerPackage('handlebars') // inlined parser
-  };
-
-  var emberBuild = new EmberBuild({
-    babel: {
-      development: babelConfigFor('development'),
-      production: babelConfigFor('production')
-    },
-    features: {
-      development: getFeatures('development'),
-      production: getFeatures('production')
-    },
-    glimmer: require('glimmer-engine'),
-    packages: getPackages(features),
-    vendoredPackages: vendorPackages,
-    version: version
-  });
-
-  return emberBuild.getDistTrees();
-};
-
-module.exports.getFeatures = getFeatures;

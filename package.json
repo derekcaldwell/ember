@@ -22,9 +22,10 @@
   },
   "devDependencies": {
     "aws-sdk": "~2.2.43",
-    "babel-plugin-feature-flags": "~0.2.1",
-    "babel-plugin-filter-imports": "~0.2.0",
     "backburner.js": "^0.3.1",
+    "broccoli-babel-transpiler": "6.0.0-alpha.1",
+    "babel-plugin-feature-flags": "~0.3.0",
+    "babel-plugin-filter-imports": "~0.3.0",
     "bower": "~1.7.7",
     "broccoli-funnel": "^1.0.6",
     "broccoli-rollup": "^1.0.3",
