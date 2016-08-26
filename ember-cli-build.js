@@ -7,6 +7,7 @@ const getGitInfo = require('git-repo-info');
 const path = require('path');
 const fs = require('fs');
 const Rollup = require('broccoli-rollup');
+const WriteFile = require('broccoli-file-creator');
 const moduleResolver = require('amd-name-resolver').resolveModules({
   throwOnRootAccess: true
 });
@@ -21,31 +22,65 @@ const DEBUG_FEATURES = getFeatures('development');
 const REMOVE_LIB = /^([^\/]+\/)lib\//;
 
 module.exports = function () {
-  // let emberAMDLib = es6ToNamedAMD(emberES6LibPackages());
-  // return new MergeTrees([
-  //   packageManagerJsonFiles(),
-  //   jquery(),
-  //   qunit(),
-  //   testIndex(),
-  //   rsvpES(),
-  //   emberAMDLib
-  // ], {
-  //   annotation: 'dist'
-  // });
-  return rsvpES();
+  let emberAMDLib = es6ToNamedAMD(emberES6LibPackages());
+  return new MergeTrees([
+    emberAMDLib,
+    emberVersion(),
+    emberFeatures(),
+    rsvpAMD(),
+    routeRecognizer()
+  ], {
+    annotation: 'dist'
+  });
 };
 
-function rsvpES() {
-  let rsvp = new Rollup('bower_components/rsvp', {
+function emberVersion() {
+  var content = 'export default ' + JSON.stringify(EMBER_VERSION) + ';\n';
+  var tree = new WriteFile('ember/version.js', content, {
+    annotation: 'ember/version'
+  });
+  return es6ToNamedAMD(tree);
+}
+
+function emberFeatures() {
+  var content = 'export default ' + JSON.stringify(DEBUG_FEATURES) + ';\n';
+  var tree = new WriteFile('ember/features.js', content, {
+    annotation: 'ember/features (DEBUG)'
+  });
+  return es6ToNamedAMD(tree);
+}
+
+function routeRecognizer() {
+  let dist = path.dirname(require.resolve('route-recognizer'));
+  let es6 = path.join(dist, 'es6');
+  return new Rollup(es6, {
     rollup: {
-      entry: 'lib/rsvp.js',
+      entry: 'route-recognizer.js',
       targets: [{
-        banner: '/*!\n * @overview RSVP - a tiny implementation of Promises/A+.\n * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors\n * @license   Licensed under MIT license\n *            See https://raw.githubusercontent.com/tildeio/rsvp.js/master/LICENSE\n * @version   3.2.1\n */',
-        dest: 'rvsp.js',
+        dest: 'route-recognizer.js',
         format: 'amd',
-        moduleId: 'rsvp'
+        moduleId: 'route-recognizer',
+        exports: 'named'
       }]
     }
+  });
+}
+
+function rsvpAMD() {
+  let version = require('./bower_components/rsvp/package.json').version;
+  let banner = fs.readFileSync('bower_components/rsvp/config/versionTemplate.txt', 'utf8');
+  let rsvp = new Rollup('bower_components/rsvp/lib', {
+    rollup: {
+      entry: 'rsvp.js',
+      targets: [{
+        banner: banner.replace('VERSION_PLACEHOLDER_STRING', version),
+        dest: 'rsvp.js',
+        format: 'amd',
+        moduleId: 'rsvp',
+        exports: 'named'
+      }]
+    },
+    annotation: 'rsvp.js'
   });
   return rsvp;
 }
