@@ -1,4 +1,4 @@
-var babelHelpers;
+var EmBabel;
 
 function classCallCheck(instance, Constructor) {
   if (!(instance instanceof Constructor)) {
@@ -62,7 +62,7 @@ function defaults(obj, defaults) {
   return obj;
 }
 
-babelHelpers = {
+EmBabel = {
   classCallCheck: classCallCheck,
   inherits: inherits,
   taggedTemplateLiteralLoose: taggedTemplateLiteralLoose,

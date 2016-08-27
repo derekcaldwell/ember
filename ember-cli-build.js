@@ -28,7 +28,8 @@ module.exports = function () {
     emberVersion(),
     emberFeatures(),
     rsvpAMD(),
-    routeRecognizer()
+    routeRecognizer(),
+    backburner()
   ], {
     annotation: 'dist'
   });
@@ -60,6 +61,22 @@ function routeRecognizer() {
         dest: 'route-recognizer.js',
         format: 'amd',
         moduleId: 'route-recognizer',
+        exports: 'named'
+      }]
+    }
+  });
+}
+
+function backburner() {
+  let dist = path.dirname(require.resolve('backburner.js'));
+  let es6 = path.join(dist, 'es6');
+  return new Rollup(es6, {
+    rollup: {
+      entry: 'backburner.js',
+      targets: [{
+        dest: 'backburner.js',
+        format: 'amd',
+        moduleId: 'backburner',
         exports: 'named'
       }]
     }
@@ -110,7 +127,20 @@ function es6ToNamedAMD(tree) {
         let t = opts.types;
         return {
           pre(file) {
-            file.set("helpersNamespace", t.identifier("EmBabel"));
+            file.set("helperGenerator", function (name) {
+              if (name === 'interopRequireDefault') {
+                // goes into a call expression
+                return t.functionExpression(null, [
+                  t.identifier('m')
+                ], t.blockStatement([
+                  t.returnStatement(t.identifier('m'))
+                ]));
+              }
+              return t.memberExpression(
+                t.identifier('EmBabel'),
+                t.identifier(name)
+              );
+            });
           }
         };
       },
@@ -129,6 +159,11 @@ function es6ToNamedAMD(tree) {
     ]
   };
   let babel = new Babel(tree, options);
+  let origKey = babel.cacheKey;
+  babel.cacheKey = function () {
+    let key = origKey.apply(this, arguments);
+    return key + "sdsdfsf";
+  }
   babel._annotation = 'packages named AMD';
   return babel;
 }
