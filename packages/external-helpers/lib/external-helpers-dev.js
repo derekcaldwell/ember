@@ -1,12 +1,10 @@
-var EmBabel;
-
-function classCallCheck(instance, Constructor) {
+export function classCallCheck(instance, Constructor) {
   if (!(instance instanceof Constructor)) {
     throw new TypeError('Cannot call a class as a function');
   }
 }
 
-function inherits(subClass, superClass) {
+export function inherits(subClass, superClass) {
   if (typeof superClass !== 'function' && superClass !== null) {
     throw new TypeError('Super expression must either be null or a function, not ' + typeof superClass);
   }
@@ -23,12 +21,12 @@ function inherits(subClass, superClass) {
   if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : defaults(subClass, superClass);
 }
 
-function taggedTemplateLiteralLoose(strings, raw) {
+export function taggedTemplateLiteralLoose(strings, raw) {
   strings.raw = raw;
   return strings;
 }
 
-function defineProperties(target, props) {
+export function defineProperties(target, props) {
   for (var i = 0; i < props.length; i++) {
     var descriptor = props[i];
     descriptor.enumerable = descriptor.enumerable || false;
@@ -38,19 +36,19 @@ function defineProperties(target, props) {
   }
 }
 
-function createClass(Constructor, protoProps, staticProps) {
+export function createClass(Constructor, protoProps, staticProps) {
   if (protoProps) defineProperties(Constructor.prototype, protoProps);
   if (staticProps) defineProperties(Constructor, staticProps);
   return Constructor;
 }
 
-function interopExportWildcard(obj, defaults) {
+export function interopExportWildcard(obj, defaults) {
   var newObj = defaults({}, obj);
   delete newObj['default'];
   return newObj;
 }
 
-function defaults(obj, defaults) {
+export function defaults(obj, defaults) {
   var keys = Object.getOwnPropertyNames(defaults);
   for (var i = 0; i < keys.length; i++) {
     var key = keys[i];
@@ -61,13 +59,3 @@ function defaults(obj, defaults) {
   }
   return obj;
 }
-
-EmBabel = {
-  classCallCheck: classCallCheck,
-  inherits: inherits,
-  taggedTemplateLiteralLoose: taggedTemplateLiteralLoose,
-  slice: Array.prototype.slice,
-  createClass: createClass,
-  interopExportWildcard: interopExportWildcard,
-  defaults: defaults
-};

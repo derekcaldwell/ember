@@ -18,6 +18,7 @@ module.exports = function () {
     routeRecognizerES(),
     backburnerES(),
     emberES(),
+    emberBabelDebugES(),
     emberFeaturesES(),
     emberVersionES()
   ], {
@@ -39,15 +40,24 @@ module.exports = function () {
   });
 };
 
-function emberES() {
-  return new Funnel('packages', {
+function emberBabelDebugES() {
+  return new Funnel('packages/external-helpers/lib', {
+    files: ['external-helpers-dev.js'],
+    getDestinationPath() {
+      return 'ember-babel.js';
+    }
+  });
+}
+
+function emberDebugES() {
+  return processES2015(new Funnel('packages', {
     include: ['*/lib/**/*.js'],
     exclude: ['loader/**', 'external-helpers/**', 'internal-test-helpers/**'],
     getDestinationPath(relativePath) {
       return relativePath.replace(REMOVE_LIB, "$1");
     },
     annotation: 'packages ES6'
-  });
+  }));
 }
 
 function emberVersionES() {
@@ -155,55 +165,38 @@ function packageManagerJSONs() {
   return packageJsons;
 }
 
-// function es6ToNamedAMD(tree) {
-//   var options = {
-//     passPerPreset: true,
-//     moduleIds: true,
-
-//     resolveModuleSource: moduleResolver,
-
-//     plugins: [
-//       function (opts) {
-//         let t = opts.types;
-//         return {
-//           pre(file) {
-//             file.set("helperGenerator", function (name) {
-//               if (name === 'interopRequireDefault') {
-//                 // goes into a call expression
-//                 return t.functionExpression(null, [
-//                   t.identifier('m')
-//                 ], t.blockStatement([
-//                   t.returnStatement(t.identifier('m'))
-//                 ]));
-//               }
-//               return t.memberExpression(
-//                 t.identifier('EmBabel'),
-//                 t.identifier(name)
-//               );
-//             });
-//           }
-//         };
-//       },
-//       ['transform-es2015-template-literals', {loose: true}],
-//       ['transform-es2015-arrow-functions'],
-//       ['transform-es2015-destructuring', {loose: true}],
-//       ['transform-es2015-spread', {loose: true}],
-//       ['transform-es2015-parameters'],
-//       ['transform-es2015-computed-properties', {loose: true}],
-//       ['transform-es2015-shorthand-properties'],
-//       ['transform-es2015-block-scoping'],
-//       ['check-es2015-constants'],
-//       ['transform-es2015-classes', {loose: true}],
-//       ['transform-proto-to-assign'],
-//       ['transform-es2015-modules-amd']
-//     ]
-//   };
-//   let babel = new Babel(tree, options);
-//   let origKey = babel.cacheKey;
-//   babel.cacheKey = function () {
-//     let key = origKey.apply(this, arguments);
-//     return key + "sdsdfsf";
-//   }
-//   babel._annotation = 'packages named AMD';
-//   return babel;
-// }
+function processES2015(tree) {
+  var options = {
+    passPerPreset: true,
+    plugins: [
+      function (opts) {
+        let t = opts.types;
+        return {
+          pre(file) {
+            file.set("helperGenerator", function (name) {
+              return file.addImport(`ember-babel`, name, name);
+            });
+          }
+        };
+      },
+      ['transform-es2015-template-literals', {loose: true}],
+      ['transform-es2015-arrow-functions'],
+      ['transform-es2015-destructuring', {loose: true}],
+      ['transform-es2015-spread', {loose: true}],
+      ['transform-es2015-parameters'],
+      ['transform-es2015-computed-properties', {loose: true}],
+      ['transform-es2015-shorthand-properties'],
+      ['transform-es2015-block-scoping'],
+      ['check-es2015-constants'],
+      ['transform-es2015-classes', {loose: true}],
+      ['transform-proto-to-assign']
+    ]
+  };
+  let babel = new Babel(tree, options);
+  let origKey = babel.cacheKey;
+  babel.cacheKey = function () {
+    let key = origKey.apply(this, arguments);
+    return key + "sdsdfsf";
+  };
+  return babel;
+}
