@@ -6,6 +6,7 @@ const Babel = require('broccoli-babel-transpiler');const path = require('path');
 const fs = require('fs');
 const Rollup = require('broccoli-rollup');
 const WriteFile = require('broccoli-file-creator');
+const moduleResolve = require('amd-name-resolver').moduleResolve;
 
 const FEATURES = require('./broccoli/features');
 const EMBER_VERSION = require('./broccoli/version');
@@ -15,9 +16,10 @@ const REMOVE_LIB = /^([^\/]+\/)lib\//;
 module.exports = function () {
   let esTree = new Funnel(new MergeTrees([
     rsvpES(),
+    routerES(),
     routeRecognizerES(),
     backburnerES(),
-    emberES(),
+    emberDebugES(),
     emberBabelDebugES(),
     emberFeaturesES(),
     emberVersionES()
@@ -87,7 +89,7 @@ function rsvpES() {
   let banner = fs.readFileSync(
     path.resolve(__dirname, 'bower_components/rsvp/config/versionTemplate.txt'),
     'utf8');
-  return new Rollup('bower_components/rsvp/lib', {
+  let rollup = new Rollup('bower_components/rsvp/lib', {
     rollup: {
       entry: 'rsvp.js',
       targets: [{
@@ -97,6 +99,48 @@ function rsvpES() {
       }]
     },
     annotation: 'rsvp.js'
+  });
+
+  rollup.cacheKey = function () {
+    return Math.random().toString();
+  }
+  return rollup;
+}
+
+function routerES() {
+  let ROOT = undefined;
+  return new Rollup('bower_components/router.js/lib', {
+    rollup: {
+      plugins: [{
+        transform() {},
+        resolveId(importee, importer) {
+          console.log('resolveId', arguments);
+          let resolved;
+          if (!importer) {
+            ROOT = path.dirname(importee);
+            resolved = importee;
+          } else if (importee.charAt(0) === '.') {
+            resolved = path.resolve(path.dirname(importer), importee) + '.js';
+          } else if (importee === 'route-recognizer' || importee === 'rsvp/promise') {
+            return importee;
+          } else {
+            resolved = path.resolve(ROOT, importee) + '.js';
+          }
+          return resolved;
+        }
+      }],
+      external: function (id) {
+        if (id === 'route-recognizer' || id === 'rsvp/promise') {
+          return id;
+        }
+      },
+      entry: 'router.js',
+      targets: [{
+        dest: 'router.js',
+        format: 'es'
+      }]
+    },
+    annotation: 'router.js'
   });
 }
 
