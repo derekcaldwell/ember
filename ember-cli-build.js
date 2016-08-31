@@ -85,6 +85,7 @@ function backburnerES() {
 }
 
 function rsvpES() {
+  // TODO upstream
   let version = require('./bower_components/rsvp/package').version;
   let banner = fs.readFileSync(
     path.resolve(__dirname, 'bower_components/rsvp/config/versionTemplate.txt'),
@@ -100,40 +101,26 @@ function rsvpES() {
     },
     annotation: 'rsvp.js'
   });
-
-  rollup.cacheKey = function () {
-    return Math.random().toString();
-  }
   return rollup;
 }
 
 function routerES() {
-  let ROOT = undefined;
+  // TODO upstream this to router.js and publish on npm
   return new Rollup('bower_components/router.js/lib', {
     rollup: {
       plugins: [{
-        transform() {},
-        resolveId(importee, importer) {
-          console.log('resolveId', arguments);
-          let resolved;
-          if (!importer) {
-            ROOT = path.dirname(importee);
-            resolved = importee;
-          } else if (importee.charAt(0) === '.') {
-            resolved = path.resolve(path.dirname(importer), importee) + '.js';
-          } else if (importee === 'route-recognizer' || importee === 'rsvp/promise') {
-            return importee;
-          } else {
-            resolved = path.resolve(ROOT, importee) + '.js';
+        transform(code, id) {
+          if (/\/router\/handler-info\/[^\/]+\.js$/.test(id)) {
+            code = code.replace(/\'router\//g, '\'../');
           }
-          return resolved;
+          code = code.replace(/import\ Promise\ from \'rsvp\/promise\'/g, 'import { Promise } from \'rsvp\'')
+          return {
+            code: code,
+            map: { mappings: '' }
+          };
         }
       }],
-      external: function (id) {
-        if (id === 'route-recognizer' || id === 'rsvp/promise') {
-          return id;
-        }
-      },
+      external: ['route-recognizer', 'rsvp'],
       entry: 'router.js',
       targets: [{
         dest: 'router.js',
