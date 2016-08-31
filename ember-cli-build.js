@@ -7,6 +7,7 @@ const fs = require('fs');
 const Rollup = require('broccoli-rollup');
 const WriteFile = require('broccoli-file-creator');
 const moduleResolve = require('amd-name-resolver').moduleResolve;
+const Concat = require('broccoli-concat');
 
 const FEATURES = require('./broccoli/features');
 const EMBER_VERSION = require('./broccoli/version');
@@ -14,7 +15,7 @@ const VERSION_PLACEHOLDER = /VERSION_STRING_PLACEHOLDER/g;
 const REMOVE_LIB = /^([^\/]+\/)lib\//;
 
 module.exports = function () {
-  let esTree = new Funnel(new MergeTrees([
+  let esTree = new MergeTrees([
     rsvpES(),
     routerES(),
     routeRecognizerES(),
@@ -25,14 +26,15 @@ module.exports = function () {
     emberVersionES()
   ], {
     annotation: 'es tree'
-  }), {
-    include: ['**/*.js'],
-    destDir: 'es',
-    annotation: 'es tree'
   });
 
   return new MergeTrees([
-    esTree,
+    new Funnel(esTree, {
+      include: ['**/*.js'],
+      destDir: 'es',
+      annotation: 'es tree'
+    }),
+    toAMD(esTree),
     qunit(),
     jquery(),
     testIndexHTML(),
@@ -196,9 +198,47 @@ function packageManagerJSONs() {
   return packageJsons;
 }
 
+function toAMD(esTree) {
+  var options = {
+    moduleIds: true,
+    resolveModuleSource: moduleResolve,
+    plugins: [
+      function (opts) {
+        let t = opts.types;
+        return {
+          pre(file) {
+            file.set("helperGenerator", function (name) {
+              if (name === 'interopRequireDefault') {
+                console.log('interopRequireDefault')
+                // goes into a call expression
+                return t.functionExpression(null, [
+                  t.identifier('m')
+                ], t.blockStatement([
+                  t.returnStatement(t.identifier('m'))
+                ]));
+              }
+            });
+          }
+        };
+      },
+      'transform-es2015-modules-amd']
+  }
+  let babel = new Babel(esTree, options);
+  babel._annotation = 'packages named AMD';
+
+  let origKey = babel.cacheKey;
+  babel.cacheKey = function () {
+    let key = origKey.apply(this, arguments);
+    return key + "sdffsd";
+  };
+
+  return new Concat(babel, {
+    outputFile: '/ember.debug.js'
+  });
+}
+
 function processES2015(tree) {
   var options = {
-    passPerPreset: true,
     plugins: [
       function (opts) {
         let t = opts.types;
@@ -227,7 +267,7 @@ function processES2015(tree) {
   let origKey = babel.cacheKey;
   babel.cacheKey = function () {
     let key = origKey.apply(this, arguments);
-    return key + "sdsdfsf";
+    return key + "sfdsdffdsf";
   };
   return babel;
 }
