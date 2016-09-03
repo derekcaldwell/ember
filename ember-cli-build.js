@@ -8,7 +8,7 @@ const Rollup = require('broccoli-rollup');
 const WriteFile = require('broccoli-file-creator');
 const moduleResolve = require('amd-name-resolver').moduleResolve;
 const Concat = require('broccoli-concat');
-
+const GlimmerTemplatePrecompiler = require('./broccoli/glimmer-template-precompiler');
 const FEATURES = require('./broccoli/features');
 const EMBER_VERSION = require('./broccoli/version');
 const VERSION_PLACEHOLDER = /VERSION_STRING_PLACEHOLDER/g;
@@ -20,10 +20,12 @@ module.exports = function () {
     routerES(),
     routeRecognizerES(),
     backburnerES(),
+    dagES(),
     emberDebugES(),
     emberBabelDebugES(),
     emberFeaturesES(),
-    emberVersionES()
+    emberVersionES(),
+    glimmerES()
   ], {
     annotation: 'es tree'
   });
@@ -44,6 +46,22 @@ module.exports = function () {
   });
 };
 
+
+
+function glimmerES() {
+  let packages = path.resolve(path.dirname(require.resolve('glimmer-engine')), '../../es6');
+  return processES2015(new Funnel(packages, {
+    include: ['**/*.js'],
+    exclude: [
+      'glimmer-benchmarks/**',
+      'glimmer-demos/**',
+      'glimmer-object/**',
+      'glimmer-object-reference/**',
+      'glimmer-object-reference/**'],
+    annotation: 'glimmer'
+  }));
+}
+
 function emberBabelDebugES() {
   return new Funnel('packages/external-helpers/lib', {
     files: ['external-helpers-dev.js'],
@@ -54,13 +72,15 @@ function emberBabelDebugES() {
 }
 
 function emberDebugES() {
-  return processES2015(new Funnel('packages', {
-    include: ['*/lib/**/*.js'],
+  return processES2015(new GlimmerTemplatePrecompiler(new Funnel('packages', {
+    include: ['*/lib/**/*.js', '*/lib/**/*.hbs'],
     exclude: ['loader/**', 'external-helpers/**', 'internal-test-helpers/**'],
     getDestinationPath(relativePath) {
       return relativePath.replace(REMOVE_LIB, "$1");
     },
     annotation: 'packages ES6'
+  }), {
+    glimmer: require('glimmer-engine')
   }));
 }
 
@@ -75,6 +95,13 @@ function emberFeaturesES() {
   let content = 'export default ' + JSON.stringify(FEATURES.DEBUG) + ';\n';
   return new WriteFile('ember/features.js', content, {
     annotation: 'ember/features (DEBUG)'
+  });
+}
+
+function dagES() {
+  return new Funnel(path.dirname(require.resolve('dag-map')), {
+    files: ['dag-map.js'],
+    annotation: 'dag-map.js'
   });
 }
 
@@ -112,7 +139,9 @@ function routerES() {
     rollup: {
       plugins: [{
         transform(code, id) {
-          if (/\/router\/handler-info\/[^\/]+\.js$/.test(id)) {
+          if (/[^t][^e][^r]\/router\.js$/.test(id)) {
+            code += 'export { Transition } from \'./router/transition\';\n'
+          } else if (/\/router\/handler-info\/[^\/]+\.js$/.test(id)) {
             code = code.replace(/\'router\//g, '\'../');
           }
           code = code.replace(/import\ Promise\ from \'rsvp\/promise\'/g, 'import { Promise } from \'rsvp\'')

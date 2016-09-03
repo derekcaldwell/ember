@@ -2,14 +2,24 @@
 <html>
 <head>
   <title></title>
+  <script type="text/x-handlebars" data-template-name="application">Hello World
+{{outlet}}</script>
+
 </head>
 <body>
-
+<script src="dist/jquery/jquery.js"></script>
 <script src="node_modules/loader.js/lib/loader/loader.js"></script>
 <script src="dist/ember.debug.js"></script>
 
+
 <script type="text/javascript">
-  EmObject = require('ember-runtime/system/core_object').default;
+  console.log('need side effects of ember-routing');
+  require('ember-template-compiler');
+  require('ember-routing');
+  console.log('require app');
+  EmberApp = require('ember-application/system/application').default;
+  console.log('create app');
+  EmberApp.create();
 </script>
 
 </body>
